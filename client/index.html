@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wild Chess - Dzikie Szachy</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Wild Chess - Dzikie Szachy</h1>
+        
+        <div id="phaseIndicator" class="phase-indicator setup-phase-indicator">
+            Setup Phase - Click "Start New Game" to begin
+        </div>
+
+        <div class="game-area">
+            <div class="chessboard" id="chessboard"></div>
+            
+            <div class="controls">
+                <div class="setup-phase" id="setupPhase">
+                    <h3>Game Setup</h3>
+                    <button onclick="startNewGame()">Start New Game</button>
+                    <button onclick="generateSetup()" id="generateBtn" disabled>Generate Random Setup</button>
+                    
+                    <div class="cards-display" id="cardsDisplay" style="display: none;">
+                        <h4>Cards Drawn:</h4>
+                        <div class="card-set">
+                            <strong>Pawn Positions (4 cards each player):</strong>
+                            <div class="cards" id="pawnCards"></div>
+                        </div>
+                        <div class="card-set">
+                            <strong>Piece Positions (3 cards each player):</strong>
+                            <div class="cards" id="pieceCards"></div>
+                        </div>
+                    </div>
+                    
+                    <button onclick="finishSetup()" id="finishSetupBtn" style="display: none;">Finish Setup & Start Game</button>
+                </div>
+
+                <div class="game-info">
+                    <div class="current-turn" id="currentTurn">White to move</div>
+                    
+                    <div class="captured-pieces">
+                        <h4>Captured Pieces</h4>
+                        <div>White captured: <div class="captured" id="whiteCaptured"></div></div>
+                        <div>Black captured: <div class="captured" id="blackCaptured"></div></div>
+                    </div>
+
+                    <div class="game-controls">
+                        <button onclick="newGame()">New Game</button>
+                        <button onclick="undoMove()" id="undoBtn" disabled>Undo Move</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Load Socket.io -->
+    <script src="/socket.io/socket.io.js"></script>
+    
+    <!-- Load JavaScript modules -->
+    <script src="js/cards.js"></script>
+    <script src="js/pieces.js"></script>
+    <script src="js/board.js"></script>
+    <script src="js/online.js"></script>
+    <script src="js/game.js"></script>
+</body>
+</html>
