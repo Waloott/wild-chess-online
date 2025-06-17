@@ -1,23 +1,18 @@
 {
-  "name": "wild-chess-online",
+  "name": "wild-chess-simple",
   "version": "1.0.0",
-  "description": "Online multiplayer Wild Chess game",
+  "description": "Simple online multiplayer chess game",
   "main": "server/server.js",
   "scripts": {
     "start": "node server/server.js",
-    "dev": "nodemon server/server.js"
+    "dev": "node server/server.js"
   },
-  "keywords": ["chess", "wild-chess", "multiplayer", "socket.io", "game"],
+  "keywords": ["chess", "multiplayer", "socket.io", "game"],
   "author": "Your Name",
   "license": "MIT",
   "dependencies": {
     "express": "^4.18.2",
-    "socket.io": "^4.7.4",
-    "uuid": "^9.0.1",
-    "cors": "^2.8.5"
-  },
-  "devDependencies": {
-    "nodemon": "^3.0.2"
+    "socket.io": "^4.7.4"
   },
   "engines": {
     "node": ">=16.0.0"

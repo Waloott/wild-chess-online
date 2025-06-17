@@ -3,67 +3,597 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Wild Chess - Dzikie Szachy</title>
-    <link rel="stylesheet" href="css/style.css">
+    <title>Wild Chess Online - Simple</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+        }
+
+        /* Menu styles */
+        .main-menu {
+            max-width: 400px;
+            margin: 0 auto;
+            text-align: center;
+        }
+
+        .menu-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+
+        .status {
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            font-weight: bold;
+        }
+
+        .status.connected {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status.disconnected {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            margin-bottom: 15px;
+            box-sizing: border-box;
+        }
+
+        button {
+            background: linear-gradient(135deg, #007bff, #0056b3);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            margin: 5px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+
+        button:hover {
+            background: linear-gradient(135deg, #0056b3, #004085);
+            transform: translateY(-2px);
+        }
+
+        button:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .messages {
+            max-height: 150px;
+            overflow-y: auto;
+            background: #f8f9fa;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 20px;
+        }
+
+        .message {
+            margin-bottom: 8px;
+            padding: 8px;
+            background: #e9ecef;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+
+        .message.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        /* Game styles */
+        .game-area {
+            display: flex;
+            gap: 30px;
+            align-items: flex-start;
+        }
+
+        .game-info {
+            flex: 1;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+
+        .chessboard {
+            width: 480px;
+            height: 480px;
+            border: 3px solid #8B4513;
+            display: grid;
+            grid-template-columns: repeat(8, 1fr);
+            grid-template-rows: repeat(8, 1fr);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+
+        .square {
+            width: 60px;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 36px;
+            cursor: pointer;
+            position: relative;
+            transition: background-color 0.2s ease;
+        }
+
+        .square.white {
+            background-color: #f0d9b5;
+        }
+
+        .square.black {
+            background-color: #b58863;
+        }
+
+        .square:hover {
+            opacity: 0.8;
+        }
+
+        .square.selected {
+            background-color: #7fb069 !important;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.3);
+        }
+
+        .square.possible-move {
+            background-color: #7fb069 !important;
+            opacity: 0.7;
+        }
+
+        .square.possible-move::after {
+            content: '';
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background-color: #2d5016;
+            border-radius: 50%;
+        }
+
+        .square.last-move {
+            background-color: #ffeb3b !important;
+            opacity: 0.7;
+        }
+
+        .piece-symbol {
+            user-select: none;
+            transition: transform 0.2s ease;
+        }
+
+        .piece-symbol:hover {
+            transform: scale(1.1);
+        }
+
+        .current-turn {
+            font-weight: bold;
+            font-size: 18px;
+            text-align: center;
+            margin: 15px 0;
+            padding: 15px;
+            border-radius: 8px;
+        }
+
+        .white-turn {
+            background: #f8f9fa;
+            color: #495057;
+            border: 2px solid #dee2e6;
+        }
+
+        .black-turn {
+            background: #343a40;
+            color: white;
+            border: 2px solid #495057;
+        }
+
+        .coordinates {
+            position: absolute;
+            font-size: 10px;
+            font-weight: bold;
+            color: #666;
+        }
+
+        .coord-rank {
+            left: 2px;
+            top: 2px;
+        }
+
+        .coord-file {
+            right: 2px;
+            bottom: 2px;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            .game-area {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .chessboard {
+                width: 320px;
+                height: 320px;
+            }
+            
+            .square {
+                width: 40px;
+                height: 40px;
+                font-size: 24px;
+            }
+        }
+    </style>
 </head>
 <body>
     <div class="container">
-        <h1>Wild Chess - Dzikie Szachy</h1>
+        <h1>Wild Chess Online - Simple Version</h1>
         
-        <div id="phaseIndicator" class="phase-indicator setup-phase-indicator">
-            Setup Phase - Click "Start New Game" to begin
+        <!-- Main Menu -->
+        <div id="mainMenu" class="main-menu">
+            <div class="status" id="connectionStatus">Connecting...</div>
+            
+            <div class="menu-section">
+                <h3>Player Setup</h3>
+                <input type="text" id="playerName" placeholder="Enter your name" maxlength="20">
+            </div>
+            
+            <div class="menu-section">
+                <h3>Play Options</h3>
+                <button onclick="findRandomGame()" id="findGameBtn">Find Random Game</button>
+                <button onclick="createPrivateRoom()" id="createRoomBtn">Create Private Room</button>
+                <div style="margin-top: 15px;">
+                    <input type="text" id="roomCodeInput" placeholder="Enter room code" maxlength="8" style="width: 60%; display: inline-block;">
+                    <button onclick="joinRoom()" style="width: 35%;">Join Room</button>
+                </div>
+            </div>
+            
+            <div class="messages" id="gameMessages"></div>
         </div>
 
-        <div class="game-area">
-            <div class="chessboard" id="chessboard"></div>
-            
-            <div class="controls">
-                <div class="setup-phase" id="setupPhase">
-                    <h3>Game Setup</h3>
-                    <button onclick="startNewGame()">Start New Game</button>
-                    <button onclick="generateSetup()" id="generateBtn" disabled>Generate Random Setup</button>
-                    
-                    <div class="cards-display" id="cardsDisplay" style="display: none;">
-                        <h4>Cards Drawn:</h4>
-                        <div class="card-set">
-                            <strong>Pawn Positions (4 cards each player):</strong>
-                            <div class="cards" id="pawnCards"></div>
-                        </div>
-                        <div class="card-set">
-                            <strong>Piece Positions (3 cards each player):</strong>
-                            <div class="cards" id="pieceCards"></div>
-                        </div>
-                    </div>
-                    
-                    <button onclick="finishSetup()" id="finishSetupBtn" style="display: none;">Finish Setup & Start Game</button>
-                </div>
-
+        <!-- Game UI -->
+        <div id="gameUI" class="hidden">
+            <div class="game-area">
+                <div class="chessboard" id="chessboard"></div>
+                
                 <div class="game-info">
-                    <div class="current-turn" id="currentTurn">White to move</div>
+                    <div class="current-turn" id="currentTurn">Game starting...</div>
                     
-                    <div class="captured-pieces">
-                        <h4>Captured Pieces</h4>
-                        <div>White captured: <div class="captured" id="whiteCaptured"></div></div>
-                        <div>Black captured: <div class="captured" id="blackCaptured"></div></div>
+                    <div class="menu-section">
+                        <h4>Room Info</h4>
+                        <p id="roomInfo">Room: -</p>
+                        <p id="playerInfo">You are: -</p>
+                        <p id="opponentInfo">Opponent: -</p>
                     </div>
-
-                    <div class="game-controls">
+                    
+                    <div class="menu-section">
+                        <h4>Game Actions</h4>
                         <button onclick="newGame()">New Game</button>
-                        <button onclick="undoMove()" id="undoBtn" disabled>Undo Move</button>
+                        <button onclick="leaveGame()">Leave Game</button>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Load Socket.io -->
+    <!-- Socket.io -->
     <script src="/socket.io/socket.io.js"></script>
     
-    <!-- Load JavaScript modules -->
-    <script src="js/cards.js"></script>
-    <script src="js/pieces.js"></script>
-    <script src="js/board.js"></script>
-    <script src="js/online.js"></script>
-    <script src="js/game.js"></script>
+    <script>
+        // Piece symbols
+        const PIECE_SYMBOLS = {
+            'white': { 'king': '♔', 'queen': '♕', 'rook': '♖', 'bishop': '♗', 'knight': '♘', 'pawn': '♙' },
+            'black': { 'king': '♚', 'queen': '♛', 'rook': '♜', 'bishop': '♝', 'knight': '♞', 'pawn': '♟' }
+        };
+
+        // Game state
+        let socket = null;
+        let gameState = {
+            board: null,
+            currentPlayer: 'white',
+            selectedSquare: null,
+            roomId: null,
+            playerColor: null,
+            gamePhase: 'menu'
+        };
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeSocket();
+        });
+
+        function initializeSocket() {
+            socket = io();
+            
+            socket.on('connect', () => {
+                updateConnectionStatus('Connected', 'connected');
+                showMessage('Connected to server');
+            });
+            
+            socket.on('disconnect', () => {
+                updateConnectionStatus('Disconnected', 'disconnected');
+                showMessage('Disconnected from server');
+            });
+
+            // Game events
+            socket.on('waitingForOpponent', () => {
+                showMessage('Waiting for opponent...');
+            });
+
+            socket.on('roomCreated', (data) => {
+                gameState.roomId = data.roomId;
+                showMessage(`Room created: ${data.roomId}. Share this code!`);
+            });
+
+            socket.on('roomJoined', (data) => {
+                gameState.roomId = data.roomId;
+                showMessage(`Joined room: ${data.roomId}`);
+                if (data.isReady) {
+                    showMessage('Both players ready!');
+                }
+            });
+
+            socket.on('gameStarted', (data) => {
+                handleGameStarted(data);
+            });
+
+            socket.on('moveMade', (data) => {
+                handleMoveMade(data);
+            });
+
+            socket.on('playerDisconnected', () => {
+                showMessage('Opponent disconnected');
+            });
+
+            socket.on('error', (error) => {
+                showError(error);
+            });
+        }
+
+        function findRandomGame() {
+            const name = getPlayerName();
+            if (!name) return;
+            
+            socket.emit('findGame', { name });
+            showMessage('Looking for a game...');
+        }
+
+        function createPrivateRoom() {
+            const name = getPlayerName();
+            if (!name) return;
+            
+            socket.emit('createRoom', { name });
+        }
+
+        function joinRoom() {
+            const name = getPlayerName();
+            const roomCode = document.getElementById('roomCodeInput').value.trim().toUpperCase();
+            
+            if (!name || !roomCode) {
+                showError('Please enter your name and room code');
+                return;
+            }
+            
+            socket.emit('joinRoom', roomCode, { name });
+        }
+
+        function getPlayerName() {
+            const name = document.getElementById('playerName').value.trim();
+            if (!name) {
+                showError('Please enter your name');
+                return null;
+            }
+            return name;
+        }
+
+        function handleGameStarted(data) {
+            gameState.roomId = data.roomId;
+            gameState.playerColor = data.yourColor;
+            gameState.board = data.board;
+            gameState.currentPlayer = data.currentPlayer;
+            gameState.gamePhase = 'playing';
+
+            // Show game UI
+            document.getElementById('mainMenu').classList.add('hidden');
+            document.getElementById('gameUI').classList.remove('hidden');
+
+            // Update info
+            document.getElementById('roomInfo').textContent = `Room: ${gameState.roomId}`;
+            document.getElementById('playerInfo').textContent = `You are: ${gameState.playerColor}`;
+            document.getElementById('opponentInfo').textContent = `Opponent: ${data.opponent.name}`;
+
+            // Initialize board
+            initializeBoard();
+            updateBoard();
+            updateCurrentTurn();
+
+            showMessage(`Game started! You are ${gameState.playerColor}`);
+        }
+
+        function handleMoveMade(data) {
+            gameState.board = data.board;
+            gameState.currentPlayer = data.currentPlayer;
+            gameState.selectedSquare = null;
+
+            updateBoard();
+            updateCurrentTurn();
+        }
+
+        function initializeBoard() {
+            const chessboard = document.getElementById('chessboard');
+            chessboard.innerHTML = '';
+            
+            for (let rank = 7; rank >= 0; rank--) {
+                for (let file = 0; file < 8; file++) {
+                    const square = document.createElement('div');
+                    square.className = `square ${(rank + file) % 2 === 0 ? 'black' : 'white'}`;
+                    square.dataset.rank = rank;
+                    square.dataset.file = file;
+                    square.onclick = () => handleSquareClick(rank, file);
+                    
+                    // Add coordinates
+                    if (file === 0) {
+                        const rankLabel = document.createElement('div');
+                        rankLabel.className = 'coordinates coord-rank';
+                        rankLabel.textContent = rank + 1;
+                        square.appendChild(rankLabel);
+                    }
+                    if (rank === 0) {
+                        const fileLabel = document.createElement('div');
+                        fileLabel.className = 'coordinates coord-file';
+                        fileLabel.textContent = String.fromCharCode(97 + file);
+                        square.appendChild(fileLabel);
+                    }
+                    
+                    chessboard.appendChild(square);
+                }
+            }
+        }
+
+        function updateBoard() {
+            const squares = document.querySelectorAll('.square');
+            squares.forEach(square => {
+                const rank = parseInt(square.dataset.rank);
+                const file = parseInt(square.dataset.file);
+                const piece = gameState.board[rank][file];
+                
+                // Clear previous piece
+                const existingPiece = square.querySelector('.piece-symbol');
+                if (existingPiece) existingPiece.remove();
+                
+                // Add piece if exists
+                if (piece) {
+                    const pieceElement = document.createElement('span');
+                    pieceElement.className = 'piece-symbol';
+                    pieceElement.textContent = PIECE_SYMBOLS[piece.color][piece.type];
+                    square.appendChild(pieceElement);
+                }
+                
+                // Remove highlighting
+                square.classList.remove('selected', 'possible-move', 'last-move');
+            });
+
+            // Highlight selected square
+            if (gameState.selectedSquare) {
+                const [rank, file] = gameState.selectedSquare;
+                const square = document.querySelector(`[data-rank="${rank}"][data-file="${file}"]`);
+                square.classList.add('selected');
+            }
+        }
+
+        function handleSquareClick(rank, file) {
+            if (gameState.gamePhase !== 'playing') return;
+            if (gameState.currentPlayer !== gameState.playerColor) return;
+
+            const piece = gameState.board[rank][file];
+            
+            if (gameState.selectedSquare) {
+                const [selectedRank, selectedFile] = gameState.selectedSquare;
+                
+                if (rank === selectedRank && file === selectedFile) {
+                    // Deselect
+                    gameState.selectedSquare = null;
+                } else {
+                    // Try to make move
+                    socket.emit('makeMove', gameState.roomId, {
+                        fromRank: selectedRank,
+                        fromFile: selectedFile,
+                        toRank: rank,
+                        toFile: file
+                    });
+                    gameState.selectedSquare = null;
+                }
+            } else if (piece && piece.color === gameState.playerColor) {
+                // Select piece
+                gameState.selectedSquare = [rank, file];
+            }
+            
+            updateBoard();
+        }
+
+        function updateCurrentTurn() {
+            const turnDiv = document.getElementById('currentTurn');
+            if (gameState.currentPlayer === gameState.playerColor) {
+                turnDiv.textContent = 'Your turn';
+                turnDiv.className = `current-turn ${gameState.playerColor}-turn`;
+            } else {
+                turnDiv.textContent = "Opponent's turn";
+                turnDiv.className = `current-turn ${gameState.currentPlayer}-turn`;
+            }
+        }
+
+        function newGame() {
+            socket.disconnect();
+            location.reload();
+        }
+
+        function leaveGame() {
+            socket.disconnect();
+            location.reload();
+        }
+
+        function updateConnectionStatus(status, className) {
+            const statusEl = document.getElementById('connectionStatus');
+            statusEl.textContent = status;
+            statusEl.className = `status ${className}`;
+        }
+
+        function showMessage(message) {
+            const messagesDiv = document.getElementById('gameMessages');
+            const messageEl = document.createElement('div');
+            messageEl.className = 'message';
+            messageEl.textContent = message;
+            messagesDiv.appendChild(messageEl);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
+            // Keep only last 5 messages
+            while (messagesDiv.children.length > 5) {
+                messagesDiv.removeChild(messagesDiv.firstChild);
+            }
+        }
+
+        function showError(error) {
+            const messagesDiv = document.getElementById('gameMessages');
+            const errorEl = document.createElement('div');
+            errorEl.className = 'message error';
+            errorEl.textContent = `Error: ${error}`;
+            messagesDiv.appendChild(errorEl);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+    </script>
 </body>
 </html>

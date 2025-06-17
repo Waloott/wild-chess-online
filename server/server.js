@@ -2,8 +2,6 @@ const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
 const path = require('path');
-const cors = require('cors');
-const GameManager = require('./game/GameManager');
 
 const app = express();
 const server = http.createServer(app);
@@ -16,9 +14,7 @@ const io = socketIo(server, {
 
 const PORT = process.env.PORT || 3000;
 
-// Middleware
-app.use(cors());
-app.use(express.json());
+// Serve static files
 app.use(express.static(path.join(__dirname, '../client')));
 
 // Serve the main page
@@ -26,146 +22,277 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, '../client/index.html'));
 });
 
-// Game manager instance
-const gameManager = new GameManager();
+// Simple game state
+let rooms = new Map();
+let waitingPlayers = [];
+
+// Helper functions
+function generateRoomId() {
+    return Math.random().toString(36).substring(2, 8).toUpperCase();
+}
+
+function createEmptyBoard() {
+    return Array(8).fill().map(() => Array(8).fill(null));
+}
+
+function setupStandardChess() {
+    const board = createEmptyBoard();
+    
+    // Place pieces in standard chess setup for simplicity
+    const pieces = ['rook', 'knight', 'bishop', 'queen', 'king', 'bishop', 'knight', 'rook'];
+    
+    // White pieces
+    for (let i = 0; i < 8; i++) {
+        board[0][i] = { type: pieces[i], color: 'white' };
+        board[1][i] = { type: 'pawn', color: 'white' };
+    }
+    
+    // Black pieces
+    for (let i = 0; i < 8; i++) {
+        board[7][i] = { type: pieces[i], color: 'black' };
+        board[6][i] = { type: 'pawn', color: 'black' };
+    }
+    
+    return board;
+}
 
 // Socket.io connection handling
 io.on('connection', (socket) => {
     console.log(`Player connected: ${socket.id}`);
 
-    // Join game queue or create new game
+    // Find game
     socket.on('findGame', (playerData) => {
-        console.log(`Player ${socket.id} looking for game`);
-        gameManager.findGame(socket, playerData);
-    });
+        const player = {
+            id: socket.id,
+            socket: socket,
+            name: playerData.name || `Player${Math.floor(Math.random() * 1000)}`
+        };
 
-    // Join specific room
-    socket.on('joinRoom', (roomId, playerData) => {
-        console.log(`Player ${socket.id} joining room ${roomId}`);
-        gameManager.joinRoom(socket, roomId, playerData);
+        // Check if there's a waiting player
+        if (waitingPlayers.length > 0) {
+            const opponent = waitingPlayers.shift();
+            createGame([opponent, player]);
+        } else {
+            waitingPlayers.push(player);
+            socket.emit('waitingForOpponent');
+        }
     });
 
     // Create private room
     socket.on('createRoom', (playerData) => {
-        console.log(`Player ${socket.id} creating private room`);
-        gameManager.createPrivateRoom(socket, playerData);
+        const player = {
+            id: socket.id,
+            socket: socket,
+            name: playerData.name || `Player${Math.floor(Math.random() * 1000)}`
+        };
+
+        const roomId = generateRoomId();
+        const room = {
+            id: roomId,
+            players: [player],
+            game: null,
+            board: createEmptyBoard(),
+            currentPlayer: 'white',
+            gamePhase: 'waiting'
+        };
+
+        rooms.set(roomId, room);
+        socket.join(roomId);
+        socket.emit('roomCreated', { roomId, player: sanitizePlayer(player) });
     });
 
-    // Generate game setup
-    socket.on('generateSetup', (roomId) => {
-        gameManager.generateSetup(socket, roomId);
-    });
+    // Join room
+    socket.on('joinRoom', (roomId, playerData) => {
+        const room = rooms.get(roomId);
+        
+        if (!room) {
+            socket.emit('error', 'Room not found');
+            return;
+        }
 
-    // Manual piece placement
-    socket.on('placePiece', (roomId, rank, file) => {
-        gameManager.placePiece(socket, roomId, rank, file);
-    });
+        if (room.players.length >= 2) {
+            socket.emit('error', 'Room is full');
+            return;
+        }
 
-    // Start game after setup
-    socket.on('finishSetup', (roomId) => {
-        gameManager.finishSetup(socket, roomId);
+        const player = {
+            id: socket.id,
+            socket: socket,
+            name: playerData.name || `Player${Math.floor(Math.random() * 1000)}`
+        };
+
+        room.players.push(player);
+        socket.join(roomId);
+
+        if (room.players.length === 2) {
+            startGame(room);
+        }
+
+        socket.to(roomId).emit('playerJoined', sanitizePlayer(player));
+        socket.emit('roomJoined', {
+            roomId,
+            players: room.players.map(p => sanitizePlayer(p)),
+            isReady: room.players.length === 2
+        });
     });
 
     // Make move
     socket.on('makeMove', (roomId, moveData) => {
-        gameManager.makeMove(socket, roomId, moveData);
+        const room = rooms.get(roomId);
+        if (!room || room.gamePhase !== 'playing') {
+            socket.emit('error', 'Invalid room or game not in progress');
+            return;
+        }
+
+        const player = room.players.find(p => p.id === socket.id);
+        if (!player || player.color !== room.currentPlayer) {
+            socket.emit('error', 'Not your turn');
+            return;
+        }
+
+        const { fromRank, fromFile, toRank, toFile } = moveData;
+
+        // Basic move validation
+        const piece = room.board[fromRank][fromFile];
+        if (!piece || piece.color !== player.color) {
+            socket.emit('error', 'Invalid piece');
+            return;
+        }
+
+        // Make the move (simplified - no complex validation)
+        const capturedPiece = room.board[toRank][toFile];
+        room.board[toRank][toFile] = piece;
+        room.board[fromRank][fromFile] = null;
+
+        // Switch players
+        room.currentPlayer = room.currentPlayer === 'white' ? 'black' : 'white';
+
+        // Broadcast move to both players
+        const moveResult = {
+            move: { fromRank, fromFile, toRank, toFile },
+            board: room.board,
+            currentPlayer: room.currentPlayer,
+            capturedPiece
+        };
+
+        io.to(roomId).emit('moveMade', moveResult);
     });
 
-    // Game actions
-    socket.on('resignGame', (roomId) => {
-        gameManager.resignGame(socket, roomId);
-    });
+    // Start standard game (skip Wild Chess setup for now)
+    socket.on('startStandardGame', (roomId) => {
+        const room = rooms.get(roomId);
+        if (!room) {
+            socket.emit('error', 'Room not found');
+            return;
+        }
 
-    socket.on('requestDraw', (roomId) => {
-        gameManager.requestDraw(socket, roomId);
-    });
+        room.board = setupStandardChess();
+        room.gamePhase = 'playing';
+        room.currentPlayer = 'white';
 
-    socket.on('respondDraw', (roomId, accept) => {
-        gameManager.respondDraw(socket, roomId, accept);
-    });
-
-    // Chat messages
-    socket.on('chatMessage', (roomId, message) => {
-        gameManager.sendChatMessage(socket, roomId, message);
-    });
-
-    // Spectator functionality
-    socket.on('spectateGame', (roomId) => {
-        gameManager.addSpectator(socket, roomId);
+        io.to(roomId).emit('gameStarted', {
+            board: room.board,
+            currentPlayer: room.currentPlayer,
+            gamePhase: room.gamePhase
+        });
     });
 
     // Handle disconnection
     socket.on('disconnect', () => {
         console.log(`Player disconnected: ${socket.id}`);
-        gameManager.handleDisconnection(socket);
-    });
+        
+        // Remove from waiting players
+        waitingPlayers = waitingPlayers.filter(p => p.id !== socket.id);
 
-    // Reconnection
-    socket.on('reconnect', (roomId, playerId) => {
-        console.log(`Player ${socket.id} attempting to reconnect to room ${roomId}`);
-        gameManager.handleReconnection(socket, roomId, playerId);
-    });
-
-    // Get room list
-    socket.on('getRoomList', () => {
-        socket.emit('roomList', gameManager.getPublicRooms());
-    });
-
-    // Get game state (for reconnections)
-    socket.on('getGameState', (roomId) => {
-        gameManager.sendGameState(socket, roomId);
-    });
-});
-
-// API endpoints for room management
-app.get('/api/rooms', (req, res) => {
-    res.json(gameManager.getPublicRooms());
-});
-
-app.get('/api/rooms/:roomId', (req, res) => {
-    const room = gameManager.getRoom(req.params.roomId);
-    if (room) {
-        res.json({
-            roomId: room.id,
-            players: room.players.length,
-            spectators: room.spectators.length,
-            gamePhase: room.game ? room.game.gamePhase : 'waiting',
-            isPrivate: room.isPrivate
+        // Handle room disconnections
+        rooms.forEach((room, roomId) => {
+            const playerIndex = room.players.findIndex(p => p.id === socket.id);
+            if (playerIndex !== -1) {
+                socket.to(roomId).emit('playerDisconnected', sanitizePlayer(room.players[playerIndex]));
+                
+                // For now, just end the game if someone disconnects
+                rooms.delete(roomId);
+            }
         });
-    } else {
-        res.status(404).json({ error: 'Room not found' });
-    }
-});
-
-// Health check endpoint
-app.get('/api/health', (req, res) => {
-    res.json({
-        status: 'healthy',
-        uptime: process.uptime(),
-        players: gameManager.getPlayerCount(),
-        rooms: gameManager.getRoomCount()
     });
-});
 
-// Error handling
-app.use((err, req, res, next) => {
-    console.error('Error:', err);
-    res.status(500).json({ error: 'Internal server error' });
+    function createGame(players) {
+        const roomId = generateRoomId();
+        
+        // Randomly assign colors
+        const whitePlayer = Math.random() < 0.5 ? players[0] : players[1];
+        const blackPlayer = whitePlayer === players[0] ? players[1] : players[0];
+
+        whitePlayer.color = 'white';
+        blackPlayer.color = 'black';
+
+        const room = {
+            id: roomId,
+            players: players,
+            board: setupStandardChess(),
+            currentPlayer: 'white',
+            gamePhase: 'playing'
+        };
+
+        rooms.set(roomId, room);
+        
+        // Add players to room
+        players.forEach(player => {
+            player.socket.join(roomId);
+        });
+
+        // Notify players
+        players.forEach(player => {
+            player.socket.emit('gameStarted', {
+                roomId: roomId,
+                yourColor: player.color,
+                opponent: sanitizePlayer(player.color === 'white' ? blackPlayer : whitePlayer),
+                board: room.board,
+                currentPlayer: room.currentPlayer,
+                gamePhase: room.gamePhase
+            });
+        });
+    }
+
+    function startGame(room) {
+        // Randomly assign colors
+        const [player1, player2] = room.players;
+        const whitePlayer = Math.random() < 0.5 ? player1 : player2;
+        const blackPlayer = whitePlayer === player1 ? player2 : player1;
+
+        whitePlayer.color = 'white';
+        blackPlayer.color = 'black';
+
+        room.board = setupStandardChess();
+        room.currentPlayer = 'white';
+        room.gamePhase = 'playing';
+
+        // Notify players
+        room.players.forEach(player => {
+            player.socket.emit('gameStarted', {
+                roomId: room.id,
+                yourColor: player.color,
+                opponent: sanitizePlayer(player.color === 'white' ? blackPlayer : whitePlayer),
+                board: room.board,
+                currentPlayer: room.currentPlayer,
+                gamePhase: room.gamePhase
+            });
+        });
+    }
+
+    function sanitizePlayer(player) {
+        return {
+            id: player.id,
+            name: player.name,
+            color: player.color
+        };
+    }
 });
 
 // Start server
 server.listen(PORT, () => {
     console.log(`Wild Chess server running on port ${PORT}`);
     console.log(`Visit http://localhost:${PORT} to play`);
-});
-
-// Graceful shutdown
-process.on('SIGTERM', () => {
-    console.log('SIGTERM received, shutting down gracefully');
-    server.close(() => {
-        console.log('Server closed');
-        process.exit(0);
-    });
 });
 
 module.exports = { app, server, io };
