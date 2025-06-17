@@ -106,24 +106,7 @@ function generateWildChessSetup() {
         }
     }
     
-    // Find empty squares for kings and queens
-    const emptySquares = [];
-    for (let rank = 0; rank < 8; rank++) {
-        for (let file = 0; file < 8; file++) {
-            if (!board[rank][file]) {
-                emptySquares.push({ rank, file });
-            }
-        }
-    }
-    
-    // Randomly place queens and kings
-    const shuffledEmpty = shuffle(emptySquares);
-    if (shuffledEmpty.length >= 4) {
-        board[shuffledEmpty[0].rank][shuffledEmpty[0].file] = { type: 'queen', color: 'white' };
-        board[shuffledEmpty[1].rank][shuffledEmpty[1].file] = { type: 'queen', color: 'black' };
-        board[shuffledEmpty[2].rank][shuffledEmpty[2].file] = { type: 'king', color: 'white' };
-        board[shuffledEmpty[3].rank][shuffledEmpty[3].file] = { type: 'king', color: 'black' };
-    }
+    // DON'T place kings and queens automatically - leave for manual placement
     
     return {
         board: board,
@@ -172,7 +155,8 @@ io.on('connection', (socket) => {
             board: createEmptyBoard(),
             currentPlayer: 'white',
             gamePhase: 'waiting',
-            wildChessSetup: null
+            wildChessSetup: null,
+            manualPlacement: null
         };
 
         rooms.set(roomId, room);
@@ -274,16 +258,74 @@ io.on('connection', (socket) => {
         const setup = generateWildChessSetup();
         room.board = setup.board;
         room.wildChessSetup = setup.cards;
-        room.gamePhase = 'playing';
-        room.currentPlayer = 'white';
+        room.gamePhase = 'manual_placement';
+        room.manualPlacement = {
+            currentPiece: 'white-queen',
+            piecesToPlace: ['white-queen', 'black-queen', 'white-king', 'black-king'],
+            currentIndex: 0
+        };
 
         // Broadcast to both players
         io.to(roomId).emit('wildSetupGenerated', {
             board: room.board,
             cards: room.wildChessSetup,
-            currentPlayer: room.currentPlayer,
-            gamePhase: room.gamePhase
+            gamePhase: room.gamePhase,
+            manualPlacement: room.manualPlacement
         });
+    });
+
+    // Handle manual piece placement
+    socket.on('placePiece', (roomId, rank, file) => {
+        const room = rooms.get(roomId);
+        if (!room || room.gamePhase !== 'manual_placement') {
+            socket.emit('error', 'Not in manual placement phase');
+            return;
+        }
+
+        // Check if square is empty
+        if (room.board[rank][file]) {
+            socket.emit('error', 'Square is occupied');
+            return;
+        }
+
+        const placement = room.manualPlacement;
+        const currentPiece = placement.piecesToPlace[placement.currentIndex];
+        const [color, type] = currentPiece.split('-');
+
+        // Verify it's the correct player's turn to place
+        const currentPlayer = room.players.find(p => p.color === color);
+        if (currentPlayer.id !== socket.id) {
+            socket.emit('error', 'Not your turn to place piece');
+            return;
+        }
+
+        // Place the piece
+        room.board[rank][file] = { type, color };
+        placement.currentIndex++;
+
+        const isComplete = placement.currentIndex >= placement.piecesToPlace.length;
+
+        if (isComplete) {
+            // All pieces placed, start the game
+            room.gamePhase = 'playing';
+            room.currentPlayer = 'white';
+            room.manualPlacement = null;
+
+            io.to(roomId).emit('setupComplete', {
+                board: room.board,
+                gamePhase: room.gamePhase,
+                currentPlayer: room.currentPlayer
+            });
+        } else {
+            // Move to next piece
+            io.to(roomId).emit('piecePlaced', {
+                rank,
+                file,
+                piece: { type, color },
+                manualPlacement: room.manualPlacement,
+                board: room.board
+            });
+        }
     });
 
     // Handle disconnection
@@ -315,7 +357,7 @@ io.on('connection', (socket) => {
         whitePlayer.color = 'white';
         blackPlayer.color = 'black';
 
-        // Generate Wild Chess setup
+        // Generate Wild Chess setup (without kings and queens)
         const setup = generateWildChessSetup();
 
         const room = {
@@ -323,8 +365,13 @@ io.on('connection', (socket) => {
             players: players,
             board: setup.board,
             currentPlayer: 'white',
-            gamePhase: 'playing',
-            wildChessSetup: setup.cards
+            gamePhase: 'manual_placement',
+            wildChessSetup: setup.cards,
+            manualPlacement: {
+                currentPiece: 'white-queen',
+                piecesToPlace: ['white-queen', 'black-queen', 'white-king', 'black-king'],
+                currentIndex: 0
+            }
         };
 
         rooms.set(roomId, room);
@@ -341,9 +388,9 @@ io.on('connection', (socket) => {
                 yourColor: player.color,
                 opponent: sanitizePlayer(player.color === 'white' ? blackPlayer : whitePlayer),
                 board: room.board,
-                currentPlayer: room.currentPlayer,
                 gamePhase: room.gamePhase,
-                wildChessSetup: room.wildChessSetup
+                wildChessSetup: room.wildChessSetup,
+                manualPlacement: room.manualPlacement
             });
         });
     }
@@ -357,12 +404,16 @@ io.on('connection', (socket) => {
         whitePlayer.color = 'white';
         blackPlayer.color = 'black';
 
-        // Generate Wild Chess setup
+        // Generate Wild Chess setup (without kings and queens)
         const setup = generateWildChessSetup();
         room.board = setup.board;
         room.wildChessSetup = setup.cards;
-        room.currentPlayer = 'white';
-        room.gamePhase = 'playing';
+        room.gamePhase = 'manual_placement';
+        room.manualPlacement = {
+            currentPiece: 'white-queen',
+            piecesToPlace: ['white-queen', 'black-queen', 'white-king', 'black-king'],
+            currentIndex: 0
+        };
 
         // Notify players
         room.players.forEach(player => {
@@ -371,9 +422,9 @@ io.on('connection', (socket) => {
                 yourColor: player.color,
                 opponent: sanitizePlayer(player.color === 'white' ? blackPlayer : whitePlayer),
                 board: room.board,
-                currentPlayer: room.currentPlayer,
                 gamePhase: room.gamePhase,
-                wildChessSetup: room.wildChessSetup
+                wildChessSetup: room.wildChessSetup,
+                manualPlacement: room.manualPlacement
             });
         });
     }

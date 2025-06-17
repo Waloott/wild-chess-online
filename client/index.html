@@ -1,4 +1,18 @@
-<!DOCTYPE html>
+function updateBoard() {
+            const squares = document.querySelectorAll('.square');
+            squares.forEach(square => {
+                const rank = parseInt(square.dataset.rank);
+                const file = parseInt(square.dataset.file);
+                const piece = gameState.board[rank][file];
+                
+                // Clear previous piece
+                const existingPiece = square.querySelector('.piece-symbol');
+                if (existingPiece) existingPiece.remove();
+                
+                // Add piece if exists
+                if (piece) {
+                    const pieceElement = document.createElement('span');
+                    pieceElement.className = '<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -219,6 +233,31 @@
             border: 2px solid #495057;
         }
 
+        .placement-turn {
+            background: #fff3cd;
+            color: #856404;
+            border: 2px solid #ffeaa7;
+        }
+
+        .square.empty-highlight {
+            background-color: #90EE90 !important;
+            opacity: 0.8;
+            cursor: pointer;
+        }
+
+        .square.empty-highlight:hover {
+            background-color: #32CD32 !important;
+            opacity: 1;
+        }
+
+        .square.empty-highlight::after {
+            content: '+';
+            position: absolute;
+            font-size: 24px;
+            color: #006400;
+            font-weight: bold;
+        }
+
         .coordinates {
             position: absolute;
             font-size: 10px;
@@ -364,7 +403,8 @@
             selectedSquare: null,
             roomId: null,
             playerColor: null,
-            gamePhase: 'menu'
+            gamePhase: 'menu',
+            manualPlacement: null
         };
 
         // Initialize
@@ -409,6 +449,14 @@
 
             socket.on('wildSetupGenerated', (data) => {
                 handleWildSetupGenerated(data);
+            });
+
+            socket.on('piecePlaced', (data) => {
+                handlePiecePlaced(data);
+            });
+
+            socket.on('setupComplete', (data) => {
+                handleSetupComplete(data);
             });
 
             socket.on('moveMade', (data) => {
@@ -464,8 +512,8 @@
             gameState.roomId = data.roomId;
             gameState.playerColor = data.yourColor;
             gameState.board = data.board;
-            gameState.currentPlayer = data.currentPlayer;
-            gameState.gamePhase = 'playing';
+            gameState.gamePhase = data.gamePhase;
+            gameState.manualPlacement = data.manualPlacement;
 
             // Show game UI
             document.getElementById('mainMenu').classList.add('hidden');
@@ -482,8 +530,8 @@
                 document.getElementById('wildChessInfo').classList.remove('hidden');
             }
 
-            // Show generate button for white player in private rooms
-            if (gameState.playerColor === 'white' && !data.wildChessSetup) {
+            // Show generate button for white player in private rooms (if not in manual placement)
+            if (gameState.playerColor === 'white' && gameState.gamePhase === 'waiting') {
                 document.getElementById('generateBtn').classList.remove('hidden');
             }
 
@@ -492,13 +540,18 @@
             updateBoard();
             updateCurrentTurn();
 
-            showMessage(`Wild Chess started! You are ${gameState.playerColor}`);
+            if (gameState.gamePhase === 'manual_placement') {
+                showMessage('Wild Chess setup generated! Now place kings and queens.');
+                highlightEmptySquares();
+            } else {
+                showMessage(`Wild Chess started! You are ${gameState.playerColor}`);
+            }
         }
 
         function handleWildSetupGenerated(data) {
             gameState.board = data.board;
-            gameState.currentPlayer = data.currentPlayer;
             gameState.gamePhase = data.gamePhase;
+            gameState.manualPlacement = data.manualPlacement;
 
             // Display the cards used
             displayWildChessCards(data.cards);
@@ -507,7 +560,29 @@
 
             updateBoard();
             updateCurrentTurn();
-            showMessage('New Wild Chess setup generated!');
+            highlightEmptySquares();
+            showMessage('Wild Chess setup generated! Now place kings and queens.');
+        }
+
+        function handlePiecePlaced(data) {
+            gameState.board = data.board;
+            gameState.manualPlacement = data.manualPlacement;
+
+            updateBoard();
+            updateCurrentTurn();
+            highlightEmptySquares();
+        }
+
+        function handleSetupComplete(data) {
+            gameState.board = data.board;
+            gameState.gamePhase = data.gamePhase;
+            gameState.currentPlayer = data.currentPlayer;
+            gameState.manualPlacement = null;
+
+            updateBoard();
+            clearEmptyHighlights();
+            updateCurrentTurn();
+            showMessage('All pieces placed! Game begins!');
         }
 
         function displayWildChessCards(cards) {
@@ -605,6 +680,13 @@
         }
 
         function handleSquareClick(rank, file) {
+            // Handle manual placement phase
+            if (gameState.gamePhase === 'manual_placement') {
+                handleManualPlacement(rank, file);
+                return;
+            }
+
+            // Handle normal game play
             if (gameState.gamePhase !== 'playing') return;
             if (gameState.currentPlayer !== gameState.playerColor) return;
 
@@ -632,6 +714,39 @@
             }
             
             updateBoard();
+        }
+
+        function handleManualPlacement(rank, file) {
+            // Check if square is empty
+            if (gameState.board[rank][file]) {
+                showError('Square is occupied');
+                return;
+            }
+
+            // Send placement to server
+            socket.emit('placePiece', gameState.roomId, rank, file);
+        }
+
+        function highlightEmptySquares() {
+            clearEmptyHighlights();
+            
+            // Highlight empty squares during manual placement
+            if (gameState.gamePhase === 'manual_placement') {
+                for (let rank = 0; rank < 8; rank++) {
+                    for (let file = 0; file < 8; file++) {
+                        if (!gameState.board[rank][file]) {
+                            const square = document.querySelector(`[data-rank="${rank}"][data-file="${file}"]`);
+                            square.classList.add('empty-highlight');
+                        }
+                    }
+                }
+            }
+        }
+
+        function clearEmptyHighlights() {
+            document.querySelectorAll('.square').forEach(square => {
+                square.classList.remove('empty-highlight');
+            });
         }
 
         function updateCurrentTurn() {
