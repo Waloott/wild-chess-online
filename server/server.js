@@ -35,25 +35,103 @@ function createEmptyBoard() {
     return Array(8).fill().map(() => Array(8).fill(null));
 }
 
-function setupStandardChess() {
+function shuffle(array) {
+    const shuffled = [...array];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled;
+}
+
+function positionToCoords(pos) {
+    const file = pos.charCodeAt(0) - 65; // A=0, B=1, etc.
+    const rank = parseInt(pos[1]) - 1;
+    return { rank, file };
+}
+
+function generateWildChessSetup() {
+    const files = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+    
+    // Small deck (16 cards) - for ranks 1 and 8
+    const smallDeck = [];
+    for (let file of files) {
+        smallDeck.push(file + '1');
+        smallDeck.push(file + '8');
+    }
+    
+    // Large deck (48 cards) - for ranks 2-7
+    const largeDeck = [];
+    for (let rank = 2; rank <= 7; rank++) {
+        for (let file of files) {
+            largeDeck.push(file + rank);
+        }
+    }
+    
+    const shuffledLarge = shuffle(largeDeck);
+    const shuffledSmall = shuffle(smallDeck);
+    
+    // Draw 8 cards for pawns (4 for each player)
+    const pawnCards = shuffledLarge.slice(0, 8);
+    
+    // Combine remaining large cards with small deck, shuffle, draw 6 for pieces
+    const remainingCards = [...shuffledLarge.slice(8), ...shuffledSmall];
+    const shuffledRemaining = shuffle(remainingCards);
+    const pieceCards = shuffledRemaining.slice(0, 6);
+    
+    // Create empty board
     const board = createEmptyBoard();
     
-    // Place pieces in standard chess setup for simplicity
-    const pieces = ['rook', 'knight', 'bishop', 'queen', 'king', 'bishop', 'knight', 'rook'];
-    
-    // White pieces
-    for (let i = 0; i < 8; i++) {
-        board[0][i] = { type: pieces[i], color: 'white' };
-        board[1][i] = { type: 'pawn', color: 'white' };
+    // Place pawns (4 for each player)
+    for (let i = 0; i < pawnCards.length; i++) {
+        const pos = positionToCoords(pawnCards[i]);
+        const color = i < 4 ? 'white' : 'black';
+        
+        // Validate pawn placement (should be in ranks 2-7)
+        if (pos.rank >= 1 && pos.rank <= 6) {
+            board[pos.rank][pos.file] = { type: 'pawn', color: color };
+        }
     }
     
-    // Black pieces
-    for (let i = 0; i < 8; i++) {
-        board[7][i] = { type: pieces[i], color: 'black' };
-        board[6][i] = { type: 'pawn', color: 'black' };
+    // Place pieces (bishops, knights, rooks - 2 each per player)
+    const pieces = ['bishop', 'knight', 'rook', 'bishop', 'knight', 'rook'];
+    for (let i = 0; i < pieceCards.length && i < pieces.length; i++) {
+        const pos = positionToCoords(pieceCards[i]);
+        const color = i < 3 ? 'white' : 'black';
+        const pieceType = pieces[i % 3];
+        
+        // Check if position is empty
+        if (!board[pos.rank][pos.file]) {
+            board[pos.rank][pos.file] = { type: pieceType, color: color };
+        }
     }
     
-    return board;
+    // Find empty squares for kings and queens
+    const emptySquares = [];
+    for (let rank = 0; rank < 8; rank++) {
+        for (let file = 0; file < 8; file++) {
+            if (!board[rank][file]) {
+                emptySquares.push({ rank, file });
+            }
+        }
+    }
+    
+    // Randomly place queens and kings
+    const shuffledEmpty = shuffle(emptySquares);
+    if (shuffledEmpty.length >= 4) {
+        board[shuffledEmpty[0].rank][shuffledEmpty[0].file] = { type: 'queen', color: 'white' };
+        board[shuffledEmpty[1].rank][shuffledEmpty[1].file] = { type: 'queen', color: 'black' };
+        board[shuffledEmpty[2].rank][shuffledEmpty[2].file] = { type: 'king', color: 'white' };
+        board[shuffledEmpty[3].rank][shuffledEmpty[3].file] = { type: 'king', color: 'black' };
+    }
+    
+    return {
+        board: board,
+        cards: {
+            pawn: pawnCards,
+            piece: pieceCards
+        }
+    };
 }
 
 // Socket.io connection handling
@@ -93,7 +171,8 @@ io.on('connection', (socket) => {
             game: null,
             board: createEmptyBoard(),
             currentPlayer: 'white',
-            gamePhase: 'waiting'
+            gamePhase: 'waiting',
+            wildChessSetup: null
         };
 
         rooms.set(roomId, room);
@@ -178,20 +257,30 @@ io.on('connection', (socket) => {
         io.to(roomId).emit('moveMade', moveResult);
     });
 
-    // Start standard game (skip Wild Chess setup for now)
-    socket.on('startStandardGame', (roomId) => {
+    // Generate Wild Chess setup
+    socket.on('generateWildSetup', (roomId) => {
         const room = rooms.get(roomId);
         if (!room) {
             socket.emit('error', 'Room not found');
             return;
         }
 
-        room.board = setupStandardChess();
+        // Only allow if both players are present
+        if (room.players.length !== 2) {
+            socket.emit('error', 'Need both players to generate setup');
+            return;
+        }
+
+        const setup = generateWildChessSetup();
+        room.board = setup.board;
+        room.wildChessSetup = setup.cards;
         room.gamePhase = 'playing';
         room.currentPlayer = 'white';
 
-        io.to(roomId).emit('gameStarted', {
+        // Broadcast to both players
+        io.to(roomId).emit('wildSetupGenerated', {
             board: room.board,
+            cards: room.wildChessSetup,
             currentPlayer: room.currentPlayer,
             gamePhase: room.gamePhase
         });
@@ -226,12 +315,16 @@ io.on('connection', (socket) => {
         whitePlayer.color = 'white';
         blackPlayer.color = 'black';
 
+        // Generate Wild Chess setup
+        const setup = generateWildChessSetup();
+
         const room = {
             id: roomId,
             players: players,
-            board: setupStandardChess(),
+            board: setup.board,
             currentPlayer: 'white',
-            gamePhase: 'playing'
+            gamePhase: 'playing',
+            wildChessSetup: setup.cards
         };
 
         rooms.set(roomId, room);
@@ -249,7 +342,8 @@ io.on('connection', (socket) => {
                 opponent: sanitizePlayer(player.color === 'white' ? blackPlayer : whitePlayer),
                 board: room.board,
                 currentPlayer: room.currentPlayer,
-                gamePhase: room.gamePhase
+                gamePhase: room.gamePhase,
+                wildChessSetup: room.wildChessSetup
             });
         });
     }
@@ -263,7 +357,10 @@ io.on('connection', (socket) => {
         whitePlayer.color = 'white';
         blackPlayer.color = 'black';
 
-        room.board = setupStandardChess();
+        // Generate Wild Chess setup
+        const setup = generateWildChessSetup();
+        room.board = setup.board;
+        room.wildChessSetup = setup.cards;
         room.currentPlayer = 'white';
         room.gamePhase = 'playing';
 
@@ -275,7 +372,8 @@ io.on('connection', (socket) => {
                 opponent: sanitizePlayer(player.color === 'white' ? blackPlayer : whitePlayer),
                 board: room.board,
                 currentPlayer: room.currentPlayer,
-                gamePhase: room.gamePhase
+                gamePhase: room.gamePhase,
+                wildChessSetup: room.wildChessSetup
             });
         });
     }
