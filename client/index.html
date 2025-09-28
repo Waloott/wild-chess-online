@@ -1,321 +1,205 @@
-function updateBoard() {
-            const squares = document.querySelectorAll('.square');
-            squares.forEach(square => {
-                const rank = parseInt(square.dataset.rank);
-                const file = parseInt(square.dataset.file);
-                const piece = gameState.board[rank][file];
-                
-                // Clear previous piece
-                const existingPiece = square.querySelector('.piece-symbol');
-                if (existingPiece) existingPiece.remove();
-                
-                // Add piece if exists
-                if (piece) {
-                    const pieceElement = document.createElement('span');
-                    pieceElement.className = '<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Wild Chess Online - Simple</title>
+    <title>Wild Chess Online</title>
     <style>
         body {
             font-family: Arial, sans-serif;
             margin: 0;
-            padding: 20px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
+            padding: 10px;
+            background: #f8f8f8;
         }
 
         .container {
-            max-width: 1000px;
+            max-width: 800px;
             margin: 0 auto;
             background: white;
-            border-radius: 15px;
             padding: 20px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            border: 1px solid #ddd;
         }
 
         h1 {
             text-align: center;
-            color: #333;
-            margin-bottom: 30px;
+            margin: 0 0 20px 0;
         }
 
-        /* Menu styles */
         .main-menu {
             max-width: 400px;
             margin: 0 auto;
-            text-align: center;
         }
 
         .menu-section {
-            margin-bottom: 30px;
-            padding: 20px;
-            background: #f8f9fa;
-            border-radius: 10px;
+            margin: 15px 0;
+            padding: 10px;
+            border: 1px solid #ccc;
+        }
+
+        .menu-section h3 {
+            margin: 0 0 10px 0;
+        }
+
+        input, button {
+            padding: 8px;
+            margin: 3px;
+            border: 1px solid #ccc;
+            font-size: 14px;
+        }
+
+        button {
+            background: #007bff;
+            color: white;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #0056b3;
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
         }
 
         .status {
-            padding: 10px;
-            border-radius: 5px;
-            margin-bottom: 20px;
+            padding: 8px;
+            margin: 10px 0;
+            border: 1px solid #ccc;
             font-weight: bold;
         }
 
         .status.connected {
             background: #d4edda;
-            color: #155724;
+            border-color: #c3e6cb;
         }
 
-        .status.disconnected {
+        .status.waiting {
+            background: #fff3cd;
+            border-color: #ffeaa7;
+        }
+
+        .status.error {
             background: #f8d7da;
-            color: #721c24;
+            border-color: #f5c6cb;
         }
 
-        input[type="text"] {
-            width: 100%;
-            padding: 12px;
-            border: 2px solid #ddd;
-            border-radius: 8px;
-            font-size: 16px;
-            margin-bottom: 15px;
-            box-sizing: border-box;
-        }
-
-        button {
-            background: linear-gradient(135deg, #007bff, #0056b3);
-            color: white;
-            border: none;
-            padding: 12px 24px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 16px;
-            font-weight: 600;
-            margin: 5px;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-        }
-
-        button:hover {
-            background: linear-gradient(135deg, #0056b3, #004085);
-            transform: translateY(-2px);
-        }
-
-        button:disabled {
-            background: #6c757d;
-            cursor: not-allowed;
-            transform: none;
-        }
-
-        .messages {
-            max-height: 150px;
-            overflow-y: auto;
-            background: #f8f9fa;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            padding: 15px;
-            margin-top: 20px;
-        }
-
-        .message {
-            margin-bottom: 8px;
-            padding: 8px;
-            background: #e9ecef;
-            border-radius: 5px;
-            font-size: 14px;
-        }
-
-        .message.error {
-            background: #f8d7da;
-            color: #721c24;
-        }
-
-        /* Game styles */
         .game-area {
-            display: flex;
-            gap: 30px;
-            align-items: flex-start;
+            display: none;
+            text-align: center;
         }
 
         .game-info {
-            flex: 1;
-            padding: 20px;
-            background: #f8f9fa;
-            border-radius: 10px;
+            display: flex;
+            justify-content: space-between;
+            margin: 15px 0;
+            padding: 10px;
+            border: 1px solid #ccc;
+        }
+
+        .player-info {
+            text-align: left;
+        }
+
+        .player-name {
+            font-weight: bold;
+        }
+
+        .player-color {
+            font-size: 12px;
+            margin-top: 3px;
+        }
+
+        .turn-indicator {
+            font-weight: bold;
         }
 
         .chessboard {
-            width: 480px;
-            height: 480px;
-            border: 3px solid #8B4513;
             display: grid;
-            grid-template-columns: repeat(8, 1fr);
-            grid-template-rows: repeat(8, 1fr);
-            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            grid-template-columns: repeat(8, 50px);
+            grid-template-rows: repeat(8, 50px);
+            margin: 20px auto;
+            border: 2px solid #000;
         }
 
         .square {
-            width: 60px;
-            height: 60px;
+            width: 50px;
+            height: 50px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 36px;
             cursor: pointer;
-            position: relative;
-            transition: background-color 0.2s ease;
+            font-size: 28px;
+            border: 1px solid #333;
         }
 
-        .square.white {
-            background-color: #f0d9b5;
+        .square.light {
+            background: #f0d9b5;
         }
 
-        .square.black {
-            background-color: #b58863;
-        }
-
-        .square:hover {
-            opacity: 0.8;
+        .square.dark {
+            background: #b58863;
         }
 
         .square.selected {
-            background-color: #7fb069 !important;
-            box-shadow: inset 0 0 10px rgba(0,0,0,0.3);
-        }
-
-        .square.possible-move {
-            background-color: #7fb069 !important;
-            opacity: 0.7;
-        }
-
-        .square.possible-move::after {
-            content: '';
-            position: absolute;
-            width: 20px;
-            height: 20px;
-            background-color: #2d5016;
-            border-radius: 50%;
+            background: #7dd3fc !important;
         }
 
         .square.last-move {
-            background-color: #ffeb3b !important;
-            opacity: 0.7;
+            background: #fbbf24 !important;
         }
 
         .piece-symbol {
             user-select: none;
-            transition: transform 0.2s ease;
+            pointer-events: none;
         }
 
-        .piece-symbol:hover {
-            transform: scale(1.1);
-        }
-
-        .current-turn {
-            font-weight: bold;
-            font-size: 18px;
-            text-align: center;
+        .wild-setup {
             margin: 15px 0;
-            padding: 15px;
-            border-radius: 8px;
-        }
-
-        .white-turn {
-            background: #f8f9fa;
-            color: #495057;
-            border: 2px solid #dee2e6;
-        }
-
-        .black-turn {
-            background: #343a40;
-            color: white;
-            border: 2px solid #495057;
-        }
-
-        .placement-turn {
-            background: #fff3cd;
-            color: #856404;
-            border: 2px solid #ffeaa7;
-        }
-
-        .square.empty-highlight {
-            background-color: #90EE90 !important;
-            opacity: 0.8;
-            cursor: pointer;
-        }
-
-        .square.empty-highlight:hover {
-            background-color: #32CD32 !important;
-            opacity: 1;
-        }
-
-        .square.empty-highlight::after {
-            content: '+';
-            position: absolute;
-            font-size: 24px;
-            color: #006400;
-            font-weight: bold;
-        }
-
-        .coordinates {
-            position: absolute;
-            font-size: 10px;
-            font-weight: bold;
-            color: #666;
-        }
-
-        .coord-rank {
-            left: 2px;
-            top: 2px;
-        }
-
-        .coord-file {
-            right: 2px;
-            bottom: 2px;
-        }
-
-        .card-display {
-            margin: 10px 0;
             padding: 10px;
-            background: #e9ecef;
-            border-radius: 5px;
-            font-size: 12px;
+            border: 1px solid #ccc;
+        }
+
+        .card-set {
+            margin: 10px 0;
+        }
+
+        .cards {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 3px;
         }
 
         .card {
-            display: inline-block;
-            background: white;
-            border: 1px solid #ccc;
             padding: 3px 6px;
-            margin: 2px;
-            border-radius: 3px;
-            font-weight: bold;
-        }
-
-        .card.white-card {
-            background: #f8f9fa;
-            color: #495057;
-        }
-
-        .card.black-card {
-            background: #343a40;
+            background: #007bff;
             color: white;
+            font-size: 11px;
         }
 
-        .hidden {
-            display: none;
+        .manual-placement {
+            margin: 15px 0;
+            padding: 10px;
+            border: 1px solid #ccc;
+            background: #fffbf0;
         }
 
-        @media (max-width: 768px) {
-            .game-area {
-                flex-direction: column;
-                align-items: center;
-            }
-            
+        .game-controls {
+            margin: 15px 0;
+        }
+
+        .room-info {
+            margin: 10px 0;
+            padding: 8px;
+            border: 1px solid #ccc;
+            font-family: monospace;
+            font-size: 14px;
+        }
+
+        @media (max-width: 600px) {
             .chessboard {
-                width: 320px;
-                height: 320px;
+                grid-template-columns: repeat(8, 40px);
+                grid-template-rows: repeat(8, 40px);
             }
             
             .square {
@@ -328,7 +212,7 @@ function updateBoard() {
 </head>
 <body>
     <div class="container">
-        <h1>Wild Chess Online - Simple Version</h1>
+        <h1>Wild Chess</h1>
         
         <!-- Main Menu -->
         <div id="mainMenu" class="main-menu">
@@ -340,47 +224,67 @@ function updateBoard() {
             </div>
             
             <div class="menu-section">
-                <h3>Play Options</h3>
-                <button onclick="findRandomGame()" id="findGameBtn">Find Random Game</button>
-                <button onclick="createPrivateRoom()" id="createRoomBtn">Create Private Room</button>
-                <div style="margin-top: 15px;">
-                    <input type="text" id="roomCodeInput" placeholder="Enter room code" maxlength="8" style="width: 60%; display: inline-block;">
-                    <button onclick="joinRoom()" style="width: 35%;">Join Room</button>
-                </div>
+                <h3>Quick Play</h3>
+                <button id="findGameBtn">Find Random Game</button>
             </div>
             
-            <div class="messages" id="gameMessages"></div>
+            <div class="menu-section">
+                <h3>Private Room</h3>
+                <button id="createRoomBtn">Create Private Room</button>
+                <div style="margin: 10px 0;">OR</div>
+                <input type="text" id="roomIdInput" placeholder="Enter Room ID" maxlength="6">
+                <button id="joinRoomBtn">Join Room</button>
+            </div>
         </div>
 
-        <!-- Game UI -->
-        <div id="gameUI" class="hidden">
-            <div class="game-area">
-                <div class="chessboard" id="chessboard"></div>
-                
-                <div class="game-info">
-                    <div class="current-turn" id="currentTurn">Game starting...</div>
-                    
-                    <div class="menu-section">
-                        <h4>Game Info</h4>
-                        <p id="roomInfo">Room: -</p>
-                        <p id="playerInfo">You are: -</p>
-                        <p id="opponentInfo">Opponent: -</p>
-                        <div id="wildChessInfo" class="hidden">
-                            <h5>Wild Chess Setup</h5>
-                            <div id="cardsDisplay">
-                                <div><strong>Pawn Cards:</strong> <span id="pawnCards"></span></div>
-                                <div><strong>Piece Cards:</strong> <span id="pieceCards"></span></div>
-                            </div>
-                        </div>
+        <!-- Game Area -->
+        <div id="gameArea" class="game-area">
+            <div class="game-info">
+                <div class="player-info">
+                    <div class="player-name" id="playerName1">Player 1</div>
+                    <div class="player-color white" id="playerColor1">White</div>
+                </div>
+                <div class="turn-indicator" id="turnIndicator">Waiting...</div>
+                <div class="player-info">
+                    <div class="player-name" id="playerName2">Player 2</div>
+                    <div class="player-color black" id="playerColor2">Black</div>
+                </div>
+            </div>
+
+            <div class="room-info" id="roomInfo" style="display: none;">
+                Room ID: <span id="currentRoomId"></span>
+            </div>
+
+            <!-- Wild Chess Setup Display -->
+            <div id="wildSetupDisplay" class="wild-setup" style="display: none;">
+                <h3>Wild Chess Setup Generated!</h3>
+                <div class="cards-display">
+                    <div class="card-set">
+                        <h4>Pawn Cards (8 cards drawn)</h4>
+                        <div id="pawnCards" class="cards"></div>
                     </div>
-                    
-                    <div class="menu-section">
-                        <h4>Game Actions</h4>
-                        <button onclick="generateNewSetup()" id="generateBtn" class="hidden">Generate New Setup</button>
-                        <button onclick="newGame()">New Game</button>
-                        <button onclick="leaveGame()">Leave Game</button>
+                    <div class="card-set">
+                        <h4>Piece Cards (6 cards drawn)</h4>
+                        <div id="pieceCards" class="cards"></div>
                     </div>
                 </div>
+            </div>
+
+            <!-- Manual Placement Phase -->
+            <div id="manualPlacement" class="manual-placement" style="display: none;">
+                <div class="placement-instruction" id="placementInstruction">
+                    Click on an empty square to place the White Queen
+                </div>
+            </div>
+
+            <!-- Chess Board -->
+            <div class="chessboard" id="chessboard">
+                <!-- Board squares will be generated by JavaScript -->
+            </div>
+
+            <div class="game-controls">
+                <button id="generateSetupBtn" style="display: none;">Generate Wild Chess Setup</button>
+                <button id="backToMenuBtn">Back to Menu</button>
             </div>
         </div>
     </div>
@@ -398,252 +302,148 @@ function updateBoard() {
         // Game state
         let socket = null;
         let gameState = {
-            board: null,
-            currentPlayer: 'white',
-            selectedSquare: null,
             roomId: null,
             playerColor: null,
-            gamePhase: 'menu',
+            board: null,
+            currentPlayer: null,
+            gamePhase: null,
+            selectedSquare: null,
+            lastMove: null,
             manualPlacement: null
         };
 
-        // Initialize
-        document.addEventListener('DOMContentLoaded', () => {
-            initializeSocket();
-        });
+        // DOM elements
+        const elements = {
+            mainMenu: document.getElementById('mainMenu'),
+            gameArea: document.getElementById('gameArea'),
+            connectionStatus: document.getElementById('connectionStatus'),
+            playerNameInput: document.getElementById('playerName'),
+            findGameBtn: document.getElementById('findGameBtn'),
+            createRoomBtn: document.getElementById('createRoomBtn'),
+            joinRoomBtn: document.getElementById('joinRoomBtn'),
+            roomIdInput: document.getElementById('roomIdInput'),
+            chessboard: document.getElementById('chessboard'),
+            generateSetupBtn: document.getElementById('generateSetupBtn'),
+            backToMenuBtn: document.getElementById('backToMenuBtn'),
+            roomInfo: document.getElementById('roomInfo'),
+            currentRoomId: document.getElementById('currentRoomId'),
+            wildSetupDisplay: document.getElementById('wildSetupDisplay'),
+            pawnCards: document.getElementById('pawnCards'),
+            pieceCards: document.getElementById('pieceCards'),
+            manualPlacement: document.getElementById('manualPlacement'),
+            placementInstruction: document.getElementById('placementInstruction'),
+            turnIndicator: document.getElementById('turnIndicator'),
+            playerName1: document.getElementById('playerName1'),
+            playerName2: document.getElementById('playerName2'),
+            playerColor1: document.getElementById('playerColor1'),
+            playerColor2: document.getElementById('playerColor2')
+        };
 
-        function initializeSocket() {
+        // Initialize the game
+        function init() {
+            connectToServer();
+            createBoard();
+            setupEventListeners();
+        }
+
+        function connectToServer() {
             socket = io();
             
             socket.on('connect', () => {
-                updateConnectionStatus('Connected', 'connected');
-                showMessage('Connected to server');
+                elements.connectionStatus.textContent = 'Connected';
+                elements.connectionStatus.className = 'status connected';
+                enableMenuButtons();
             });
-            
+
             socket.on('disconnect', () => {
-                updateConnectionStatus('Disconnected', 'disconnected');
-                showMessage('Disconnected from server');
+                elements.connectionStatus.textContent = 'Disconnected';
+                elements.connectionStatus.className = 'status error';
+                disableMenuButtons();
             });
 
             // Game events
             socket.on('waitingForOpponent', () => {
-                showMessage('Waiting for opponent...');
+                elements.connectionStatus.textContent = 'Waiting for opponent...';
+                elements.connectionStatus.className = 'status waiting';
             });
 
             socket.on('roomCreated', (data) => {
                 gameState.roomId = data.roomId;
-                showMessage(`Room created: ${data.roomId}. Share this code!`);
+                showRoomInfo(data.roomId);
+                elements.connectionStatus.textContent = 'Room created! Waiting for opponent...';
+                elements.connectionStatus.className = 'status waiting';
             });
 
             socket.on('roomJoined', (data) => {
                 gameState.roomId = data.roomId;
-                showMessage(`Joined room: ${data.roomId}`);
+                showRoomInfo(data.roomId);
                 if (data.isReady) {
-                    showMessage('Both players ready!');
+                    elements.connectionStatus.textContent = 'Both players connected!';
+                    elements.connectionStatus.className = 'status connected';
+                } else {
+                    elements.connectionStatus.textContent = 'Joined room! Waiting for opponent...';
+                    elements.connectionStatus.className = 'status waiting';
                 }
             });
 
             socket.on('gameStarted', (data) => {
-                handleGameStarted(data);
+                startGame(data);
             });
 
             socket.on('wildSetupGenerated', (data) => {
-                handleWildSetupGenerated(data);
+                displayWildSetup(data);
+                updateBoard();
             });
 
             socket.on('piecePlaced', (data) => {
-                handlePiecePlaced(data);
+                gameState.board = data.board;
+                gameState.manualPlacement = data.manualPlacement;
+                updateBoard();
+                updatePlacementInstruction();
             });
 
             socket.on('setupComplete', (data) => {
-                handleSetupComplete(data);
+                gameState.board = data.board;
+                gameState.gamePhase = data.gamePhase;
+                gameState.currentPlayer = data.currentPlayer;
+                hideManualPlacement();
+                updateBoard();
+                updateTurnIndicator();
             });
 
             socket.on('moveMade', (data) => {
-                handleMoveMade(data);
+                gameState.board = data.board;
+                gameState.currentPlayer = data.currentPlayer;
+                gameState.lastMove = data.move;
+                gameState.selectedSquare = null;
+                updateBoard();
+                updateTurnIndicator();
             });
 
-            socket.on('playerDisconnected', () => {
-                showMessage('Opponent disconnected');
+            socket.on('error', (message) => {
+                alert('Error: ' + message);
             });
 
-            socket.on('error', (error) => {
-                showError(error);
-            });
-        }
-
-        function findRandomGame() {
-            const name = getPlayerName();
-            if (!name) return;
-            
-            socket.emit('findGame', { name });
-            showMessage('Looking for a game...');
-        }
-
-        function createPrivateRoom() {
-            const name = getPlayerName();
-            if (!name) return;
-            
-            socket.emit('createRoom', { name });
-        }
-
-        function joinRoom() {
-            const name = getPlayerName();
-            const roomCode = document.getElementById('roomCodeInput').value.trim().toUpperCase();
-            
-            if (!name || !roomCode) {
-                showError('Please enter your name and room code');
-                return;
-            }
-            
-            socket.emit('joinRoom', roomCode, { name });
-        }
-
-        function getPlayerName() {
-            const name = document.getElementById('playerName').value.trim();
-            if (!name) {
-                showError('Please enter your name');
-                return null;
-            }
-            return name;
-        }
-
-        function handleGameStarted(data) {
-            gameState.roomId = data.roomId;
-            gameState.playerColor = data.yourColor;
-            gameState.board = data.board;
-            gameState.gamePhase = data.gamePhase;
-            gameState.manualPlacement = data.manualPlacement;
-
-            // Show game UI
-            document.getElementById('mainMenu').classList.add('hidden');
-            document.getElementById('gameUI').classList.remove('hidden');
-
-            // Update info
-            document.getElementById('roomInfo').textContent = `Room: ${gameState.roomId}`;
-            document.getElementById('playerInfo').textContent = `You are: ${gameState.playerColor}`;
-            document.getElementById('opponentInfo').textContent = `Opponent: ${data.opponent.name}`;
-
-            // Show Wild Chess setup info if available
-            if (data.wildChessSetup) {
-                displayWildChessCards(data.wildChessSetup);
-                document.getElementById('wildChessInfo').classList.remove('hidden');
-            }
-
-            // Show generate button for white player in private rooms (if not in manual placement)
-            if (gameState.playerColor === 'white' && gameState.gamePhase === 'waiting') {
-                document.getElementById('generateBtn').classList.remove('hidden');
-            }
-
-            // Initialize board
-            initializeBoard();
-            updateBoard();
-            updateCurrentTurn();
-
-            if (gameState.gamePhase === 'manual_placement') {
-                showMessage('Wild Chess setup generated! Now place kings and queens.');
-                highlightEmptySquares();
-            } else {
-                showMessage(`Wild Chess started! You are ${gameState.playerColor}`);
-            }
-        }
-
-        function handleWildSetupGenerated(data) {
-            gameState.board = data.board;
-            gameState.gamePhase = data.gamePhase;
-            gameState.manualPlacement = data.manualPlacement;
-
-            // Display the cards used
-            displayWildChessCards(data.cards);
-            document.getElementById('wildChessInfo').classList.remove('hidden');
-            document.getElementById('generateBtn').classList.add('hidden');
-
-            updateBoard();
-            updateCurrentTurn();
-            highlightEmptySquares();
-            showMessage('Wild Chess setup generated! Now place kings and queens.');
-        }
-
-        function handlePiecePlaced(data) {
-            gameState.board = data.board;
-            gameState.manualPlacement = data.manualPlacement;
-
-            updateBoard();
-            updateCurrentTurn();
-            highlightEmptySquares();
-        }
-
-        function handleSetupComplete(data) {
-            gameState.board = data.board;
-            gameState.gamePhase = data.gamePhase;
-            gameState.currentPlayer = data.currentPlayer;
-            gameState.manualPlacement = null;
-
-            updateBoard();
-            clearEmptyHighlights();
-            updateCurrentTurn();
-            showMessage('All pieces placed! Game begins!');
-        }
-
-        function displayWildChessCards(cards) {
-            const pawnCardsEl = document.getElementById('pawnCards');
-            const pieceCardsEl = document.getElementById('pieceCards');
-            
-            // Display pawn cards
-            pawnCardsEl.innerHTML = '';
-            cards.pawn.forEach((card, i) => {
-                const cardEl = document.createElement('span');
-                cardEl.className = `card ${i < 4 ? 'white-card' : 'black-card'}`;
-                cardEl.textContent = card;
-                pawnCardsEl.appendChild(cardEl);
-            });
-
-            // Display piece cards
-            pieceCardsEl.innerHTML = '';
-            cards.piece.forEach((card, i) => {
-                const cardEl = document.createElement('span');
-                cardEl.className = `card ${i < 3 ? 'white-card' : 'black-card'}`;
-                cardEl.textContent = card;
-                pieceCardsEl.appendChild(cardEl);
+            socket.on('playerDisconnected', (player) => {
+                alert('Player ' + player.name + ' disconnected');
+                backToMenu();
             });
         }
 
-        function handleMoveMade(data) {
-            gameState.board = data.board;
-            gameState.currentPlayer = data.currentPlayer;
-            gameState.selectedSquare = null;
-
-            updateBoard();
-            updateCurrentTurn();
-        }
-
-        function initializeBoard() {
-            const chessboard = document.getElementById('chessboard');
-            chessboard.innerHTML = '';
+        function createBoard() {
+            elements.chessboard.innerHTML = '';
             
             for (let rank = 7; rank >= 0; rank--) {
                 for (let file = 0; file < 8; file++) {
                     const square = document.createElement('div');
-                    square.className = `square ${(rank + file) % 2 === 0 ? 'black' : 'white'}`;
+                    square.className = 'square';
+                    square.classList.add((rank + file) % 2 === 0 ? 'dark' : 'light');
                     square.dataset.rank = rank;
                     square.dataset.file = file;
-                    square.onclick = () => handleSquareClick(rank, file);
                     
-                    // Add coordinates
-                    if (file === 0) {
-                        const rankLabel = document.createElement('div');
-                        rankLabel.className = 'coordinates coord-rank';
-                        rankLabel.textContent = rank + 1;
-                        square.appendChild(rankLabel);
-                    }
-                    if (rank === 0) {
-                        const fileLabel = document.createElement('div');
-                        fileLabel.className = 'coordinates coord-file';
-                        fileLabel.textContent = String.fromCharCode(97 + file);
-                        square.appendChild(fileLabel);
-                    }
+                    square.addEventListener('click', () => handleSquareClick(rank, file));
                     
-                    chessboard.appendChild(square);
+                    elements.chessboard.appendChild(square);
                 }
             }
         }
@@ -667,144 +467,219 @@ function updateBoard() {
                     square.appendChild(pieceElement);
                 }
                 
-                // Remove highlighting
-                square.classList.remove('selected', 'possible-move', 'last-move');
+                // Remove selection and move highlights
+                square.classList.remove('selected', 'valid-move', 'last-move');
+                
+                // Highlight selected square
+                if (gameState.selectedSquare && 
+                    gameState.selectedSquare.rank === rank && 
+                    gameState.selectedSquare.file === file) {
+                    square.classList.add('selected');
+                }
+                
+                // Highlight last move
+                if (gameState.lastMove) {
+                    if ((gameState.lastMove.fromRank === rank && gameState.lastMove.fromFile === file) ||
+                        (gameState.lastMove.toRank === rank && gameState.lastMove.toFile === file)) {
+                        square.classList.add('last-move');
+                    }
+                }
             });
-
-            // Highlight selected square
-            if (gameState.selectedSquare) {
-                const [rank, file] = gameState.selectedSquare;
-                const square = document.querySelector(`[data-rank="${rank}"][data-file="${file}"]`);
-                square.classList.add('selected');
-            }
         }
 
         function handleSquareClick(rank, file) {
-            // Handle manual placement phase
+            if (!socket || !gameState.roomId) return;
+
             if (gameState.gamePhase === 'manual_placement') {
-                handleManualPlacement(rank, file);
-                return;
-            }
-
-            // Handle normal game play
-            if (gameState.gamePhase !== 'playing') return;
-            if (gameState.currentPlayer !== gameState.playerColor) return;
-
-            const piece = gameState.board[rank][file];
-            
-            if (gameState.selectedSquare) {
-                const [selectedRank, selectedFile] = gameState.selectedSquare;
-                
-                if (rank === selectedRank && file === selectedFile) {
-                    // Deselect
-                    gameState.selectedSquare = null;
-                } else {
-                    // Try to make move
+                // Handle manual piece placement
+                socket.emit('placePiece', gameState.roomId, rank, file);
+            } else if (gameState.gamePhase === 'playing') {
+                // Handle normal game moves
+                if (gameState.selectedSquare) {
+                    // Make move
                     socket.emit('makeMove', gameState.roomId, {
-                        fromRank: selectedRank,
-                        fromFile: selectedFile,
+                        fromRank: gameState.selectedSquare.rank,
+                        fromFile: gameState.selectedSquare.file,
                         toRank: rank,
                         toFile: file
                     });
                     gameState.selectedSquare = null;
+                } else {
+                    // Select piece
+                    const piece = gameState.board[rank][file];
+                    if (piece && piece.color === gameState.playerColor && 
+                        gameState.currentPlayer === gameState.playerColor) {
+                        gameState.selectedSquare = { rank, file };
+                    }
                 }
-            } else if (piece && piece.color === gameState.playerColor) {
-                // Select piece
-                gameState.selectedSquare = [rank, file];
+                updateBoard();
+            }
+        }
+
+        function setupEventListeners() {
+            elements.findGameBtn.addEventListener('click', () => {
+                const playerName = elements.playerNameInput.value.trim() || 'Anonymous';
+                socket.emit('findGame', { name: playerName });
+                showGame();
+            });
+
+            elements.createRoomBtn.addEventListener('click', () => {
+                const playerName = elements.playerNameInput.value.trim() || 'Anonymous';
+                socket.emit('createRoom', { name: playerName });
+                showGame();
+            });
+
+            elements.joinRoomBtn.addEventListener('click', () => {
+                const roomId = elements.roomIdInput.value.trim().toUpperCase();
+                const playerName = elements.playerNameInput.value.trim() || 'Anonymous';
+                
+                if (!roomId) {
+                    alert('Please enter a room ID');
+                    return;
+                }
+                
+                socket.emit('joinRoom', roomId, { name: playerName });
+                showGame();
+            });
+
+            elements.generateSetupBtn.addEventListener('click', () => {
+                socket.emit('generateWildSetup', gameState.roomId);
+            });
+
+            elements.backToMenuBtn.addEventListener('click', backToMenu);
+        }
+
+        function startGame(data) {
+            gameState.roomId = data.roomId;
+            gameState.playerColor = data.yourColor;
+            gameState.board = data.board;
+            gameState.gamePhase = data.gamePhase;
+            gameState.manualPlacement = data.manualPlacement;
+            
+            showGame();
+            updatePlayerInfo(data);
+            
+            if (data.wildChessSetup) {
+                displayWildSetup(data);
+            }
+            
+            if (data.gamePhase === 'manual_placement') {
+                showManualPlacement();
+                updatePlacementInstruction();
             }
             
             updateBoard();
         }
 
-        function handleManualPlacement(rank, file) {
-            // Check if square is empty
-            if (gameState.board[rank][file]) {
-                showError('Square is occupied');
-                return;
-            }
-
-            // Send placement to server
-            socket.emit('placePiece', gameState.roomId, rank, file);
+        function showGame() {
+            elements.mainMenu.style.display = 'none';
+            elements.gameArea.style.display = 'block';
         }
 
-        function highlightEmptySquares() {
-            clearEmptyHighlights();
+        function backToMenu() {
+            elements.mainMenu.style.display = 'block';
+            elements.gameArea.style.display = 'none';
+            elements.roomInfo.style.display = 'none';
+            elements.wildSetupDisplay.style.display = 'none';
+            elements.manualPlacement.style.display = 'none';
             
-            // Highlight empty squares during manual placement
-            if (gameState.gamePhase === 'manual_placement') {
-                for (let rank = 0; rank < 8; rank++) {
-                    for (let file = 0; file < 8; file++) {
-                        if (!gameState.board[rank][file]) {
-                            const square = document.querySelector(`[data-rank="${rank}"][data-file="${file}"]`);
-                            square.classList.add('empty-highlight');
-                        }
-                    }
-                }
-            }
+            gameState = {
+                roomId: null,
+                playerColor: null,
+                board: null,
+                currentPlayer: null,
+                gamePhase: null,
+                selectedSquare: null,
+                lastMove: null,
+                manualPlacement: null
+            };
         }
 
-        function clearEmptyHighlights() {
-            document.querySelectorAll('.square').forEach(square => {
-                square.classList.remove('empty-highlight');
+        function showRoomInfo(roomId) {
+            elements.currentRoomId.textContent = roomId;
+            elements.roomInfo.style.display = 'block';
+        }
+
+        function displayWildSetup(data) {
+            elements.wildSetupDisplay.style.display = 'block';
+            
+            // Display pawn cards
+            elements.pawnCards.innerHTML = '';
+            data.cards.pawn.forEach(card => {
+                const cardElement = document.createElement('span');
+                cardElement.className = 'card';
+                cardElement.textContent = card;
+                elements.pawnCards.appendChild(cardElement);
+            });
+            
+            // Display piece cards
+            elements.pieceCards.innerHTML = '';
+            data.cards.piece.forEach(card => {
+                const cardElement = document.createElement('span');
+                cardElement.className = 'card';
+                cardElement.textContent = card;
+                elements.pieceCards.appendChild(cardElement);
             });
         }
 
-        function updateCurrentTurn() {
-            const turnDiv = document.getElementById('currentTurn');
-            if (gameState.currentPlayer === gameState.playerColor) {
-                turnDiv.textContent = 'Your turn';
-                turnDiv.className = `current-turn ${gameState.playerColor}-turn`;
+        function showManualPlacement() {
+            elements.manualPlacement.style.display = 'block';
+        }
+
+        function hideManualPlacement() {
+            elements.manualPlacement.style.display = 'none';
+        }
+
+        function updatePlacementInstruction() {
+            if (!gameState.manualPlacement) return;
+            
+            const currentPiece = gameState.manualPlacement.piecesToPlace[gameState.manualPlacement.currentIndex];
+            if (currentPiece) {
+                const [color, type] = currentPiece.split('-');
+                elements.placementInstruction.textContent = 
+                    `Click on an empty square to place the ${color.charAt(0).toUpperCase() + color.slice(1)} ${type.charAt(0).toUpperCase() + type.slice(1)}`;
+            }
+        }
+
+        function updateTurnIndicator() {
+            if (gameState.gamePhase === 'playing') {
+                const isMyTurn = gameState.currentPlayer === gameState.playerColor;
+                elements.turnIndicator.textContent = isMyTurn ? 'Your Turn' : 'Opponent\'s Turn';
+                elements.turnIndicator.style.color = isMyTurn ? '#4CAF50' : '#ff9800';
             } else {
-                turnDiv.textContent = "Opponent's turn";
-                turnDiv.className = `current-turn ${gameState.currentPlayer}-turn`;
+                elements.turnIndicator.textContent = 'Setup Phase';
+                elements.turnIndicator.style.color = '#333';
             }
         }
 
-        function generateNewSetup() {
-            if (gameState.roomId && gameState.playerColor === 'white') {
-                socket.emit('generateWildSetup', gameState.roomId);
-                showMessage('Generating new Wild Chess setup...');
+        function updatePlayerInfo(data) {
+            if (gameState.playerColor === 'white') {
+                elements.playerName1.textContent = 'You';
+                elements.playerName2.textContent = data.opponent.name;
+                elements.playerColor1.textContent = 'White';
+                elements.playerColor2.textContent = 'Black';
+            } else {
+                elements.playerName1.textContent = data.opponent.name;
+                elements.playerName2.textContent = 'You';
+                elements.playerColor1.textContent = 'White';
+                elements.playerColor2.textContent = 'Black';
             }
         }
 
-        function newGame() {
-            socket.disconnect();
-            location.reload();
+        function enableMenuButtons() {
+            elements.findGameBtn.disabled = false;
+            elements.createRoomBtn.disabled = false;
+            elements.joinRoomBtn.disabled = false;
         }
 
-        function leaveGame() {
-            socket.disconnect();
-            location.reload();
+        function disableMenuButtons() {
+            elements.findGameBtn.disabled = true;
+            elements.createRoomBtn.disabled = true;
+            elements.joinRoomBtn.disabled = true;
         }
 
-        function updateConnectionStatus(status, className) {
-            const statusEl = document.getElementById('connectionStatus');
-            statusEl.textContent = status;
-            statusEl.className = `status ${className}`;
-        }
-
-        function showMessage(message) {
-            const messagesDiv = document.getElementById('gameMessages');
-            const messageEl = document.createElement('div');
-            messageEl.className = 'message';
-            messageEl.textContent = message;
-            messagesDiv.appendChild(messageEl);
-            messagesDiv.scrollTop = messagesDiv.scrollHeight;
-
-            // Keep only last 5 messages
-            while (messagesDiv.children.length > 5) {
-                messagesDiv.removeChild(messagesDiv.firstChild);
-            }
-        }
-
-        function showError(error) {
-            const messagesDiv = document.getElementById('gameMessages');
-            const errorEl = document.createElement('div');
-            errorEl.className = 'message error';
-            errorEl.textContent = `Error: ${error}`;
-            messagesDiv.appendChild(errorEl);
-            messagesDiv.scrollTop = messagesDiv.scrollHeight;
-        }
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', init);
     </script>
 </body>
 </html>

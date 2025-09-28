@@ -1,0 +1,9 @@
+# EC2 Connection Commands
+
+# 1. Connect via SSH (replace with your key file and instance IP)
+ssh -i "your-key-pair.pem" ec2-user@your-ec2-public-ip
+
+# 2. If you get permission denied, fix key permissions:
+chmod 400 your-key-pair.pem
+
+# 3. Alternative: Use EC2 Instance Connect from AWS Console
